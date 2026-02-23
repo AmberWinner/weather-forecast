@@ -33,20 +33,24 @@
           </div>
           <div class="detail-item">
             <span class="label">经纬度：</span>
-            <span class="value">{{ selectedCity.lat }}, {{ selectedCity.lon }}</span>
+            <span class="value"
+              >{{ selectedCity.lat }}, {{ selectedCity.lon }}</span
+            >
           </div>
           <div class="detail-item">
             <span class="label">行政区：</span>
-            <span class="value">{{ selectedCity.adm1 }} / {{ selectedCity.adm2 }}</span>
+            <span class="value"
+              >{{ selectedCity.adm1 }} / {{ selectedCity.adm2 }}</span
+            >
           </div>
         </div>
-        
+
         <!-- 获取天气按钮 -->
-        <el-button 
-          type="primary" 
-          @click="fetchWeather" 
+        <el-button
+          type="primary"
+          @click="fetchWeather"
           :loading="weatherLoading"
-          style="width: 100%; margin-top: 16px;"
+          style="width: 100%; margin-top: 16px"
         >
           获取天气信息
         </el-button>
@@ -84,34 +88,17 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
-import CitySearch from '../components/CitySearch.vue';
-import { getNowWeather } from '../api/weather';
-import { Sunny, Location, Cloudy } from '@element-plus/icons-vue';
-import { ElMessage } from 'element-plus';
+import { computed, ref } from "vue";
+import CitySearch from "../components/CitySearch.vue";
+import { getNowWeather } from "../api/weather";
+import { Sunny, Location, Cloudy } from "@element-plus/icons-vue";
+import { ElMessage } from "element-plus";
+import { useWeatherStore } from "../stores/weather";
 
-// 选中的城市信息
-const selectedCity = ref(null);
+const weatherStore = useWeatherStore();
 
-// 检查环境变量配置
-onMounted(() => {
-  const apiKey = import.meta.env.VITE_WEATHER_KEY;
-  const weatherUrl = import.meta.env.VITE_WEATHER_BASE_URL;
-  const geoUrl = import.meta.env.VITE_GEO_BASE_URL;
-  
-  console.log('=== 环境变量配置检查 ===');
-  console.log('API Key:', apiKey ? `${apiKey.substring(0, 8)}...` : '❌ 未配置');
-  console.log('Weather URL:', weatherUrl || '❌ 未配置');
-  console.log('Geo URL:', geoUrl || '❌ 未配置');
-  console.log('========================');
-  
-  if (!apiKey || !weatherUrl || !geoUrl) {
-    ElMessage.error({
-      message: '环境变量未配置！请检查 .env 文件，详见 ENV_CONFIG.md',
-      duration: 5000
-    });
-  }
-});
+// 选中的城市信息（从 store 读取，便于全局共享）
+const selectedCity = computed(() => weatherStore.currentCity);
 
 // 天气数据
 const weatherData = ref(null);
@@ -122,9 +109,9 @@ const weatherLoading = ref(false);
  * @param {Object} city - 城市信息对象
  */
 const handleCitySelected = (city) => {
-  console.log('选中的城市：', city);
-  selectedCity.value = city;
-  
+  console.log("选中的城市：", city);
+  weatherStore.setCity(city);
+
   // 自动获取天气（可选，也可以让用户手动点击按钮获取）
   fetchWeather();
 };
@@ -134,30 +121,44 @@ const handleCitySelected = (city) => {
  */
 const fetchWeather = async () => {
   if (!selectedCity.value) {
-    ElMessage.warning('请先选择城市');
+    ElMessage.warning("请先选择城市");
+    return;
+  }
+
+  const cached = weatherStore.getNowWeather(selectedCity.value.id);
+  if (cached) {
+    weatherData.value = {
+      temp: cached.temp,
+      feelsLike: cached.feelsLike,
+      text: cached.text,
+      windDir: cached.windDir,
+      humidity: cached.humidity,
+      precip: cached.precip,
+    };
     return;
   }
 
   weatherLoading.value = true;
   try {
     const response = await getNowWeather(selectedCity.value.id);
-    
-    if (response.code === '200' && response.now) {
+
+    if (response.code === "200" && response.now) {
+      weatherStore.setNowWeather(selectedCity.value.id, response.now);
       weatherData.value = {
-        temp: response.now.temp,           // 温度
+        temp: response.now.temp, // 温度
         feelsLike: response.now.feelsLike, // 体感温度
-        text: response.now.text,           // 天气状况
-        windDir: response.now.windDir,     // 风向
-        humidity: response.now.humidity,   // 相对湿度
-        precip: response.now.precip,       // 降水量
+        text: response.now.text, // 天气状况
+        windDir: response.now.windDir, // 风向
+        humidity: response.now.humidity, // 相对湿度
+        precip: response.now.precip, // 降水量
       };
-      ElMessage.success('天气信息获取成功');
+      ElMessage.success("天气信息获取成功");
     } else {
-      ElMessage.error('天气信息获取失败');
+      ElMessage.error("天气信息获取失败");
     }
   } catch (error) {
-    console.error('获取天气失败：', error);
-    ElMessage.error('获取天气失败，请稍后重试');
+    console.error("获取天气失败：", error);
+    ElMessage.error("获取天气失败，请稍后重试");
   } finally {
     weatherLoading.value = false;
   }

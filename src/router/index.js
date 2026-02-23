@@ -10,15 +10,18 @@ const routes = [
       title: '天气预报'
     }
   },
-  // 可以添加更多路由
-  // {
-  //   path: '/forecast',
-  //   name: 'Forecast',
-  //   component: () => import('../views/Forecast.vue'),
-  //   meta: {
-  //     title: '天气预报详情'
-  //   }
-  // }
+  {
+    path: '/login',
+    name: 'Login',
+    component: () => import('../views/Login.vue'),
+    meta: {
+      title: '登录 / 注册'
+    }
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    redirect: '/'
+  }
 ];
 
 const router = createRouter({
